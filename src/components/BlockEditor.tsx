@@ -1,11 +1,16 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { Block, TableData } from '../types';
-import { SETTING_HEADERS } from '../config';
+import { useSettings } from '../settings';
+import SettingMaker from './SettingMaker';
 import TableEditor, { blankTable } from './TableEditor';
 
 /** 글 내용 편집기: 문단 사이사이에 표를 넣을 수 있어요 (커서 위치에 표가 들어가요) */
 export default function BlockEditor(props: { blocks: Block[]; onChange: (b: Block[]) => void; title: string; notify: (m: string) => void; idPrefix: string }) {
   const { blocks, onChange } = props;
+  const { settings, remove } = useSettings();
+  const [making, setMaking] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [sure, setSure] = useState<number | null>(null);
   // 마지막으로 커서가 있던 문단과 위치
   const caret = useRef<{ i: number; pos: number } | null>(null);
 
@@ -61,11 +66,51 @@ export default function BlockEditor(props: { blocks: Block[]; onChange: (b: Bloc
           <button className="btn btn-small btn-outline" onClick={() => insertTable(blankTable(3, 3))}>
             표 넣기
           </button>
-          <button className="btn btn-small btn-outline" onClick={() => insertTable({ rows: [SETTING_HEADERS.slice(), SETTING_HEADERS.map(() => '')] })}>
-            세팅값 표 넣기
+          <button className="btn btn-small btn-outline" aria-expanded={picking} onClick={() => setPicking(!picking)}>
+            세팅값 불러오기
+          </button>
+          <button className="btn btn-small btn-outline" onClick={() => setMaking(true)}>
+            세팅값 표 만들기
           </button>
         </span>
       </div>
+      {picking && (
+        <div className="picker" role="group" aria-label="저장된 세팅값">
+          {settings.length === 0 && <span className="muted small-text">저장된 세팅값이 없어요. 「세팅값 표 만들기」로 먼저 만들어 주세요.</span>}
+          {settings.map((s) => (
+            <div key={s.id} className="picker-row">
+              <span className="picker-name">
+                {s.name} <span className="muted small-text">· {s.table.rows[0]?.length ?? 0}열 {Math.max(0, s.table.rows.length - 1)}행</span>
+              </span>
+              <button
+                className="btn btn-small"
+                onClick={() => {
+                  insertTable(JSON.parse(JSON.stringify(s.table)) as TableData);
+                  setPicking(false);
+                }}
+              >
+                넣기
+              </button>
+              {sure === s.id ? (
+                <button
+                  className="btn btn-small btn-danger"
+                  onClick={async () => {
+                    await remove(s.id);
+                    setSure(null);
+                  }}
+                >
+                  정말 삭제
+                </button>
+              ) : (
+                <button className="btn btn-small btn-ghost danger-text" onClick={() => setSure(s.id)}>
+                  삭제
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {making && <SettingMaker onClose={() => setMaking(false)} notify={props.notify} />}
       <span className="muted small-text">글을 쓰다가 표를 넣고 싶은 자리에 커서를 두고 버튼을 누르면 그 자리에 표가 들어가요.</span>
       {blocks.map((b, i) =>
         b.type === 'text' ? (

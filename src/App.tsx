@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FileMeta, Post } from './types';
+import type { FileMeta, Post, SettingTable } from './types';
 import { token } from './config';
-import { UserError, deleteFiles, errMsg, loadPosts, mutatePosts, uploadFile } from './lib/github';
+import { UserError, deleteFiles, errMsg, loadPosts, loadSettings, mutatePosts, mutateSettings, uploadFile } from './lib/github';
+import { SettingsContext, type SettingsApi } from './settings';
 import ListView from './components/ListView';
 import DetailView, { type DetailActions } from './components/DetailView';
 import type { NewPostInput } from './components/WriteForm';
@@ -15,6 +16,7 @@ function parseHash(): number | null {
 
 export default function App() {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [settings, setSettings] = useState<SettingTable[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState<number | null>(parseHash());
@@ -32,6 +34,11 @@ export default function App() {
   const reload = useCallback(async () => {
     try {
       setPosts(await loadPosts());
+      try {
+        setSettings(await loadSettings());
+      } catch {
+        // 세팅값을 못 불러와도 글은 볼 수 있어요
+      }
       setError('');
     } catch (e) {
       setError(errMsg(e));
@@ -154,9 +161,25 @@ export default function App() {
       }, '댓글을 등록했어요'),
   };
 
+  const settingsApi: SettingsApi = {
+    settings,
+    canWrite,
+    save: (name, table) =>
+      run(async () => {
+        setSettings(
+          await mutateSettings((list) => [...list, { id: Date.now(), name, table, createdAt: new Date().toISOString() }], `세팅값 저장: ${name}`),
+        );
+      }, '세팅값을 저장했어요'),
+    remove: (id) =>
+      run(async () => {
+        setSettings(await mutateSettings((list) => list.filter((x) => x.id !== id), '세팅값 삭제'));
+      }, '세팅값을 삭제했어요'),
+  };
+
   const current = openId != null ? posts.find((p) => p.id === openId) : undefined;
 
   return (
+    <SettingsContext.Provider value={settingsApi}>
     <div className="page">
       <Toast text={toast} />
       <div className="wrap">
@@ -220,5 +243,6 @@ export default function App() {
         )}
       </div>
     </div>
+    </SettingsContext.Provider>
   );
 }

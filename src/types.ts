@@ -61,3 +61,11 @@ export interface Post {
 export interface Company {
   name: string;
 }
+
+/** 저장해 둔 세팅값 표 (새 글을 쓸 때 불러와 넣어요) */
+export interface SettingTable {
+  id: number;
+  name: string;
+  table: TableData;
+  createdAt: string;
+}

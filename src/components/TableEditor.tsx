@@ -120,7 +120,7 @@ export default function TableEditor(props: { table: TableData; onChange: (t: Tab
         <span className="label">표 (칸을 눌러 바로 수정하세요)</span>
         <span className="table-tools">
           <button className="btn btn-small btn-outline" onClick={loadSetting}>
-            세팅값 불러오기
+            세팅값 제목 넣기
           </button>
           <button className="btn btn-small btn-ghost danger-text" onClick={() => props.onChange(undefined)}>
             표 삭제

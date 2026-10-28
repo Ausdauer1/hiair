@@ -710,3 +710,51 @@ label.btn:focus-within,
   outline: 2px solid var(--blue);
   outline-offset: -2px;
 }
+
+/* 세팅값 불러오기 / 만들기 창 */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+}
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.picker-name {
+  flex: 1;
+  min-width: 0;
+}
+.modal-back {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 12px;
+  overflow-y: auto;
+  background: rgba(27, 31, 30, 0.45);
+}
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(960px, 100%);
+  padding: 20px;
+  background: #fff;
+  border: 1px solid var(--field);
+  border-top: 3px solid var(--blue);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-head strong {
+  font-size: 18px;
+}

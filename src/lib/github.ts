@@ -1,15 +1,17 @@
 import { repo, branch, token } from '../config';
-import type { FileMeta, Post } from '../types';
+import type { FileMeta, Post, SettingTable } from '../types';
 
 /**
  * data 브랜치를 저장소로 쓰는 계층이에요.
- *  - data/posts.json        : 모든 글(요청사항, 결과물, 댓글)
+ *  - data/posts.json        : 모든 글(요청사항, 댓글)
+ *  - data/settings.json     : 저장해 둔 세팅값 표
  *  - data/files/<글id>/...  : 첨부 파일
  * 브라우저가 GitHub Contents API 로 바로 읽고 써요.
  */
 
 const API = `https://api.github.com/repos/${repo}`;
 const POSTS_PATH = 'data/posts.json';
+const SETTINGS_PATH = 'data/settings.json';
 
 /** 화면에 그대로 보여줘도 되는 오류 */
 export class UserError extends Error {}
@@ -73,10 +75,10 @@ async function toError(res: Response): Promise<ApiError> {
   return new ApiError(res.status, msg);
 }
 
-async function readPosts(): Promise<{ posts: Post[]; sha?: string }> {
-  const url = `${API}/contents/${enc(POSTS_PATH)}?ref=${encodeURIComponent(branch)}&t=${Date.now()}`;
+async function readJson<T>(path: string): Promise<{ data: T[]; sha?: string }> {
+  const url = `${API}/contents/${enc(path)}?ref=${encodeURIComponent(branch)}&t=${Date.now()}`;
   const res = await fetch(url, { headers: headers(), cache: 'no-store' });
-  if (res.status === 404) return { posts: [] };
+  if (res.status === 404) return { data: [] };
   if (!res.ok) throw await toError(res);
   const j = await res.json();
   let text = '[]';
@@ -92,14 +94,14 @@ async function readPosts(): Promise<{ posts: Post[]; sha?: string }> {
     text = await b.text();
   }
   const parsed = JSON.parse(text || '[]');
-  return { posts: Array.isArray(parsed) ? (parsed as Post[]) : [], sha: j.sha as string };
+  return { data: Array.isArray(parsed) ? (parsed as T[]) : [], sha: j.sha as string };
 }
 
-async function writePosts(posts: Post[], sha: string | undefined, message: string): Promise<void> {
-  const content = toBase64(new TextEncoder().encode(JSON.stringify(posts, null, 2)));
+async function writeJson<T>(path: string, data: T[], sha: string | undefined, message: string): Promise<void> {
+  const content = toBase64(new TextEncoder().encode(JSON.stringify(data, null, 2)));
   const body: Record<string, unknown> = { message, content, branch };
   if (sha) body.sha = sha;
-  const res = await fetch(`${API}/contents/${enc(POSTS_PATH)}`, {
+  const res = await fetch(`${API}/contents/${enc(path)}`, {
     method: 'PUT',
     headers: headers({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
@@ -107,20 +109,16 @@ async function writePosts(posts: Post[], sha: string | undefined, message: strin
   if (!res.ok) throw await toError(res);
 }
 
-export async function loadPosts(): Promise<Post[]> {
-  return (await readPosts()).posts;
-}
-
 /**
- * 최신 글 목록을 읽어 변경하고 저장해요.
+ * 최신 목록을 읽어 변경하고 저장해요.
  * 다른 사람이 동시에 저장해서 충돌하면 최신본을 다시 읽어 같은 변경을 다시 적용해요.
  */
-export async function mutatePosts(fn: (posts: Post[]) => Post[], message: string): Promise<Post[]> {
+async function mutateJson<T>(path: string, fn: (list: T[]) => T[], message: string): Promise<T[]> {
   for (let attempt = 0; attempt < 4; attempt++) {
-    const { posts, sha } = await readPosts();
-    const next = fn(JSON.parse(JSON.stringify(posts)) as Post[]);
+    const { data, sha } = await readJson<T>(path);
+    const next = fn(JSON.parse(JSON.stringify(data)) as T[]);
     try {
-      await writePosts(next, sha, message);
+      await writeJson(path, next, sha, message);
       return next;
     } catch (e) {
       if (e instanceof ApiError && (e.status === 409 || e.status === 422) && attempt < 3) {
@@ -132,6 +130,20 @@ export async function mutatePosts(fn: (posts: Post[]) => Post[], message: string
   }
   throw new UserError('동시에 저장하는 사람이 많아 저장하지 못했어요. 다시 시도해 주세요');
 }
+
+export async function loadPosts(): Promise<Post[]> {
+  return (await readJson<Post>(POSTS_PATH)).data;
+}
+
+export const mutatePosts = (fn: (posts: Post[]) => Post[], message: string): Promise<Post[]> => mutateJson<Post>(POSTS_PATH, fn, message);
+
+/** 저장해 둔 세팅값 표 */
+export async function loadSettings(): Promise<SettingTable[]> {
+  return (await readJson<SettingTable>(SETTINGS_PATH)).data;
+}
+
+export const mutateSettings = (fn: (list: SettingTable[]) => SettingTable[], message: string): Promise<SettingTable[]> =>
+  mutateJson<SettingTable>(SETTINGS_PATH, fn, message);
 
 export async function uploadFile(postId: number, file: File): Promise<FileMeta> {
   const m = file.name.match(/\.[A-Za-z0-9]{1,8}$/);

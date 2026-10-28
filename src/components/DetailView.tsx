@@ -82,7 +82,7 @@ export default function DetailView(props: { post: Post; canWrite: boolean; actio
                   </p>
                 )
               ) : (
-                <TableView key={i} table={b.rows} title={post.title} notify={actions.notify} />
+                <TableView key={i} table={{ rows: b.rows, fmt: b.fmt }} title={post.title} notify={actions.notify} />
               ),
             )}
           </>

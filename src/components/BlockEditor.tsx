@@ -1,7 +1,7 @@
 import { useRef } from 'react';
-import type { Block } from '../types';
+import type { Block, TableData } from '../types';
 import { SETTING_HEADERS } from '../config';
-import TableEditor, { blankRow } from './TableEditor';
+import TableEditor, { blankTable } from './TableEditor';
 
 /** 글 내용 편집기: 문단 사이사이에 표를 넣을 수 있어요 (커서 위치에 표가 들어가요) */
 export default function BlockEditor(props: { blocks: Block[]; onChange: (b: Block[]) => void; title: string; notify: (m: string) => void; idPrefix: string }) {
@@ -13,22 +13,22 @@ export default function BlockEditor(props: { blocks: Block[]; onChange: (b: Bloc
     onChange(blocks.map((b, bi) => (bi === i && b.type === 'text' ? { type: 'text', text } : b)));
   }
 
-  function insertTable(rows: string[][]) {
+  function insertTable(t: TableData) {
     const at = caret.current;
     const target = at ? blocks[at.i] : undefined;
     if (at && target && target.type === 'text') {
       const before = target.text.slice(0, at.pos);
       const after = target.text.slice(at.pos);
-      onChange([...blocks.slice(0, at.i), { type: 'text', text: before }, { type: 'table', rows }, { type: 'text', text: after }, ...blocks.slice(at.i + 1)]);
+      onChange([...blocks.slice(0, at.i), { type: 'text', text: before }, { type: 'table', ...t }, { type: 'text', text: after }, ...blocks.slice(at.i + 1)]);
       caret.current = null;
     } else {
-      onChange([...blocks, { type: 'table', rows }, { type: 'text', text: '' }]);
+      onChange([...blocks, { type: 'table', ...t }, { type: 'text', text: '' }]);
     }
   }
 
-  function setTable(i: number, rows: string[][] | undefined) {
-    if (rows) {
-      onChange(blocks.map((b, bi) => (bi === i && b.type === 'table' ? { type: 'table', rows } : b)));
+  function setTable(i: number, t: TableData | undefined) {
+    if (t) {
+      onChange(blocks.map((b, bi) => (bi === i && b.type === 'table' ? { type: 'table', ...t } : b)));
       return;
     }
     // 표를 지우면 앞뒤 문단을 하나로 합쳐요
@@ -58,10 +58,10 @@ export default function BlockEditor(props: { blocks: Block[]; onChange: (b: Bloc
       <div className="table-head">
         <label htmlFor={`${props.idPrefix}-body-0`}>내용</label>
         <span className="table-tools">
-          <button className="btn btn-small btn-outline" onClick={() => insertTable(blankRow(3).map(() => blankRow(3)))}>
+          <button className="btn btn-small btn-outline" onClick={() => insertTable(blankTable(3, 3))}>
             표 넣기
           </button>
-          <button className="btn btn-small btn-outline" onClick={() => insertTable([SETTING_HEADERS.slice(), blankRow(SETTING_HEADERS.length)])}>
+          <button className="btn btn-small btn-outline" onClick={() => insertTable({ rows: [SETTING_HEADERS.slice(), SETTING_HEADERS.map(() => '')] })}>
             세팅값 표 넣기
           </button>
         </span>
@@ -93,7 +93,7 @@ export default function BlockEditor(props: { blocks: Block[]; onChange: (b: Bloc
                 표 아래로
               </button>
             </div>
-            <TableEditor table={b.rows} onChange={(r) => setTable(i, r)} title={props.title} notify={props.notify} />
+            <TableEditor table={{ rows: b.rows, fmt: b.fmt }} onChange={(t) => setTable(i, t)} title={props.title} notify={props.notify} />
           </div>
         ),
       )}

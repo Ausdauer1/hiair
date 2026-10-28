@@ -1,3 +1,5 @@
+import type { CellFmt } from '../types';
+
 // 외부 라이브러리 없이 만드는 최소 .xlsx 생성기 (압축 없는 zip)
 const enc = new TextEncoder();
 
@@ -61,20 +63,39 @@ function colName(i: number): string {
   return s;
 }
 
-/** 첫 행을 굵게 표시한 엑셀(.xlsx) 파일을 만들어요. 모든 값은 문자로 저장돼요. */
-export function buildXlsx(rows: string[][], sheetName = 'Sheet1'): Blob {
+const ALIGN = { l: 'left', c: 'center', r: 'right' } as const;
+
+/** 첫 행을 굵게 표시한 엑셀(.xlsx) 파일을 만들어요. 칸 서식(굵게/정렬)도 담아요. 모든 값은 문자로 저장돼요. */
+export function buildXlsx(rows: string[][], sheetName = 'Sheet1', fmt?: CellFmt[][]): Blob {
   const width = Math.max(1, ...rows.map((r) => r.length));
   const cols = Array.from({ length: width }, (_, c) => {
     const max = Math.max(4, ...rows.map((r) => Array.from(r[c] ?? '').reduce((n, ch) => n + (ch.charCodeAt(0) > 255 ? 2 : 1), 0)));
     return `<col min="${c + 1}" max="${c + 1}" width="${Math.min(60, max + 3)}" customWidth="1"/>`;
   }).join('');
+  // 서식 조합마다 스타일 번호를 하나씩 만들어요
+  const styleKeys: string[] = [];
+  const styleOf = (hdr: boolean, f: CellFmt | undefined) => {
+    const key = `${hdr ? 1 : 0}${f?.b ? 1 : 0}${f?.a ?? ''}`;
+    let i = styleKeys.indexOf(key);
+    if (i < 0) i = styleKeys.push(key) - 1;
+    return i;
+  };
   const sheetRows = rows
     .map((r, ri) => {
       const cells = Array.from({ length: width }, (_, c) => {
         const v = r[c] ?? '';
-        return `<c r="${colName(c)}${ri + 1}" t="inlineStr"${ri === 0 ? ' s="1"' : ''}><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
+        const st = styleOf(ri === 0, fmt?.[ri]?.[c]);
+        return `<c r="${colName(c)}${ri + 1}" t="inlineStr" s="${st}"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
       }).join('');
       return `<row r="${ri + 1}">${cells}</row>`;
+    })
+    .join('');
+  const xfs = styleKeys
+    .map((k) => {
+      const hdr = k[0] === '1';
+      const bold = hdr || k[1] === '1';
+      const al = k.slice(2) as '' | 'l' | 'c' | 'r';
+      return `<xf numFmtId="49" fontId="${bold ? 1 : 0}" fillId="${hdr ? 2 : 0}" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyNumberFormat="1"${al ? ' applyAlignment="1"><alignment horizontal="' + ALIGN[al] + '" vertical="center"/></xf>' : '/>'}`;
     })
     .join('');
   const X = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
@@ -83,7 +104,7 @@ export function buildXlsx(rows: string[][], sheetName = 'Sheet1'): Blob {
     { name: '_rels/.rels', text: X + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
     { name: 'xl/workbook.xml', text: X + `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${esc(sheetName.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || 'Sheet1')}" sheetId="1" r:id="rId1"/></sheets></workbook>` },
     { name: 'xl/_rels/workbook.xml.rels', text: X + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
-    { name: 'xl/styles.xml', text: X + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Malgun Gothic"/></font><font><b/><sz val="11"/><name val="Malgun Gothic"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE5F0F9"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFAEB6C6"/></left><right style="thin"><color rgb="FFAEB6C6"/></right><top style="thin"><color rgb="FFAEB6C6"/></top><bottom style="thin"><color rgb="FFAEB6C6"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyNumberFormat="1"/><xf numFmtId="49" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyNumberFormat="1"/></cellXfs></styleSheet>' },
+    { name: 'xl/styles.xml', text: X + `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Malgun Gothic"/></font><font><b/><sz val="11"/><name val="Malgun Gothic"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE5F0F9"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFAEB6C6"/></left><right style="thin"><color rgb="FFAEB6C6"/></right><top style="thin"><color rgb="FFAEB6C6"/></top><bottom style="thin"><color rgb="FFAEB6C6"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${styleKeys.length}">${xfs}</cellXfs></styleSheet>` },
     { name: 'xl/worksheets/sheet1.xml', text: X + `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${cols}</cols><sheetData>${sheetRows}</sheetData></worksheet>` },
   ];
   const bytes = zip(files.map((f) => ({ name: f.name, data: enc.encode(f.text) })));

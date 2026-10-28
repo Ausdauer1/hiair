@@ -15,7 +15,19 @@ export interface Comment {
 }
 
 /** 글 내용: 문단과 표가 순서대로 섞여 있어요 */
-export type Block = { type: 'text'; text: string } | { type: 'table'; rows: string[][] };
+/** 표 칸 서식: 굵게, 정렬(왼쪽/가운데/오른쪽) */
+export interface CellFmt {
+  b?: boolean;
+  a?: 'l' | 'c' | 'r';
+}
+
+/** 표 (첫 행이 제목 행). fmt는 rows와 같은 크기일 때만 쓰여요 */
+export interface TableData {
+  rows: string[][];
+  fmt?: CellFmt[][];
+}
+
+export type Block = { type: 'text'; text: string } | ({ type: 'table' } & TableData);
 
 /** 작성 완료 (결과물) 표시 */
 export interface Done {

@@ -666,3 +666,47 @@ label.btn:focus-within,
   background: var(--panel-bg);
   border: 1px solid var(--line);
 }
+
+/* 표 서식 도구 */
+.format-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.mini-btn {
+  min-width: 36px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--field);
+  border-radius: 0;
+  background: #fff;
+  color: var(--ink);
+  font: 500 13px 'Noto Sans KR', sans-serif;
+  cursor: pointer;
+}
+.mini-btn.on {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.mini-btn:disabled {
+  color: #9aa3b5;
+  cursor: not-allowed;
+}
+.format-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.format-scope select {
+  min-height: 32px;
+  font-size: 13px;
+}
+.grid-edit td.cell-on {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}

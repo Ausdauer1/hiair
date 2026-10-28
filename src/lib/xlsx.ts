@@ -87,5 +87,5 @@ export function buildXlsx(rows: string[][], sheetName = 'Sheet1'): Blob {
     { name: 'xl/worksheets/sheet1.xml', text: X + `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${cols}</cols><sheetData>${sheetRows}</sheetData></worksheet>` },
   ];
   const bytes = zip(files.map((f) => ({ name: f.name, data: enc.encode(f.text) })));
-  return new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  return new Blob([bytes as unknown as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }

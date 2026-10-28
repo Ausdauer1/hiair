@@ -14,26 +14,38 @@ export interface Comment {
   createdAt: string;
 }
 
+/** 글 내용: 문단과 표가 순서대로 섞여 있어요 */
+export type Block = { type: 'text'; text: string } | { type: 'table'; rows: string[][] };
+
+/** 작성 완료 (결과물) 표시 */
+export interface Done {
+  by: string;
+  at: string;
+}
+
 export interface Post {
   id: number;
-  /** 요청사항에만 붙는 번호 (결과물은 번호 없음) */
+  /** 요청사항 번호 */
   no?: number;
   kind: Kind;
   title: string;
-  body: string;
+  /** 예전 글(문단만)과의 호환용 */
+  body?: string;
+  blocks?: Block[];
+  /** 작성 완료를 누르면 붙어요 */
+  done?: Done;
   /** 작성 업체 이름 */
   author: string;
   /** 마감일 (YYYY-MM-DD, 요청사항만) */
   due?: string;
-  /** 결과물이 연결된 요청사항의 id */
-  link?: number;
   createdAt: string;
   editedAt?: string;
   files: FileMeta[];
   comments: Comment[];
+  /** 글 수정·삭제용 비밀번호 (프로토타입이라 그대로 저장돼요) */
+  password?: string;
 }
 
 export interface Company {
   name: string;
-  password: string;
 }

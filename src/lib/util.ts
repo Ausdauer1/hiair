@@ -1,4 +1,4 @@
-import type { Post } from '../types';
+import type { Block, Post } from '../types';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -40,13 +40,14 @@ export function requestsOf(posts: Post[]): Post[] {
   return posts.filter((p) => p.kind === '요청사항').sort((a, b) => (b.no ?? 0) - (a.no ?? 0) || b.id - a.id);
 }
 
-/** 한 요청사항에 달린 결과물: 오래된 것부터 */
-export function resultsOf(posts: Post[], requestId: number): Post[] {
-  return posts.filter((p) => p.kind === '결과물' && p.link === requestId).sort((a, b) => a.id - b.id);
+export function reqLabel(p: Post): string {
+  return `#${p.no} ${p.title}`;
 }
 
-export function reqLabel(p: Post): string {
-  return `#${p.no ?? '-'} ${p.title}`;
+/** 글 내용을 블록 목록으로 (예전 글은 문단 하나로) */
+export function blocksOf(p: Post): Block[] {
+  if (p.blocks && p.blocks.length > 0) return p.blocks;
+  return [{ type: 'text', text: p.body ?? '' }];
 }
 
 /** 카카오톡 등 인앱 브라우저는 blob 다운로드를 지원하지 않는다 */
@@ -57,4 +58,16 @@ export function isKakaoInApp(): boolean {
 /** 카카오톡 인앱 브라우저에서 현재 페이지를 기본 브라우저로 여는 주소 */
 export function kakaoExternalUrl(): string {
   return `kakaotalk://web/openExternal?url=${encodeURIComponent(window.location.href)}`;
+}
+
+/** 브라우저에서 파일 저장 (카카오톡 인앱 브라우저에서는 기본 브라우저로 넘겨요) */
+export function saveBlob(blob: Blob, name: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

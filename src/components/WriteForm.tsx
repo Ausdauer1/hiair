@@ -1,88 +1,50 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Kind, Post } from '../types';
-import { MAX_FILES, MAX_FILE_MB, checkPassword, companies } from '../config';
-import { fileSize, reqLabel, requestsOf } from '../lib/util';
+import { useEffect, useRef, useState } from 'react';
+import type { Block } from '../types';
+import { MAX_FILES, MAX_FILE_MB, companies } from '../config';
+import { fileSize } from '../lib/util';
+import BlockEditor from './BlockEditor';
 
 export interface NewPostInput {
-  kind: Kind;
   company: string;
   title: string;
-  body: string;
+  blocks: Block[];
   due: string;
-  link?: number;
   files: File[];
+  password: string;
 }
 
+const EMPTY: Block[] = [{ type: 'text', text: '' }];
+
 export default function WriteForm(props: {
-  posts: Post[];
   canWrite: boolean;
   focusKey: number;
-  prefill: { link: number; key: number } | null;
-  onPrefillUsed: () => void;
   onSubmit: (input: NewPostInput) => Promise<boolean>;
   notify: (msg: string) => void;
 }) {
-  const { posts, canWrite, focusKey, prefill, onPrefillUsed, onSubmit, notify } = props;
-  const [kind, setKind] = useState<Kind>('요청사항');
+  const { canWrite, focusKey, onSubmit, notify } = props;
   const [company, setCompany] = useState(companies[0].name);
   const [pw, setPw] = useState('');
   const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
+  const [blocks, setBlocks] = useState<Block[]>(EMPTY);
   const [due, setDue] = useState('');
-  const [link, setLink] = useState<number | null>(null);
-  const [q, setQ] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const boxRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
-  function focusForm() {
-    setTimeout(() => {
-      boxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      titleRef.current?.focus({ preventScroll: true });
-    }, 120);
-  }
-
   // 상단 "글쓰기" 버튼
   useEffect(() => {
-    if (focusKey > 0) focusForm();
+    if (focusKey > 0) {
+      setTimeout(() => {
+        boxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        titleRef.current?.focus({ preventScroll: true });
+      }, 120);
+    }
   }, [focusKey]);
 
-  // "이 요청사항에 결과물 올리기"
-  useEffect(() => {
-    if (!prefill) return;
-    setKind('결과물');
-    setLink(prefill.link);
-    setQ('');
-    focusForm();
-    onPrefillUsed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefill?.key]);
-
-  const selected = link != null ? posts.find((p) => p.id === link && p.kind === '요청사항') : undefined;
-  const matches = useMemo(() => {
-    const t = q.trim().toLowerCase().replace(/^#/, '');
-    if (!t) return [];
-    return requestsOf(posts).filter((p) => String(p.no) === t || p.title.toLowerCase().includes(t) || p.author.toLowerCase().includes(t));
-  }, [q, posts]);
-
-  const pwOk = checkPassword(company, pw);
-  const pwBad = pw !== '' && !pwOk;
-  const linkOk = kind === '요청사항' || !!selected;
-  const ok = canWrite && pwOk && linkOk && title.trim() !== '' && !busy;
-  const msg = !canWrite
-    ? '쓰기 토큰이 설정되지 않아 글을 등록할 수 없어요'
-    : pw === ''
-      ? '업체 비밀번호를 입력하세요'
-      : pwBad
-        ? '비밀번호가 맞지 않아요'
-        : !linkOk
-          ? '관련 요청사항을 선택하세요'
-          : title.trim() === ''
-            ? '제목을 입력하세요'
-            : busy
-              ? '등록 중…'
-              : '확인됐어요';
+  const pwOk = pw.trim() !== '';
+  const ok = canWrite && pwOk && title.trim() !== '' && !busy;
+  const msg = !canWrite ? '쓰기 토큰이 설정되지 않아 글을 등록할 수 없어요' : !pwOk ? '글 비밀번호를 정하세요 (수정·삭제할 때 필요해요)' : title.trim() === '' ? '제목을 입력하세요' : busy ? '등록 중…' : '확인됐어요';
 
   function addFiles(list: FileList | null) {
     if (!list) return;
@@ -104,33 +66,24 @@ export default function WriteForm(props: {
   async function submit() {
     if (!ok) return;
     setBusy(true);
-    const done = await onSubmit({ kind, company, title: title.trim(), body, due: kind === '요청사항' ? due : '', link: selected?.id, files });
+    const done = await onSubmit({ company, title: title.trim(), blocks, due, files, password: pw });
     setBusy(false);
     if (done) {
       setPw('');
       setTitle('');
-      setBody('');
+      setBlocks(EMPTY);
       setDue('');
-      setLink(null);
-      setQ('');
       setFiles([]);
     }
   }
 
   return (
     <section className="panel" id="write" ref={boxRef}>
-      <h2>새 글 작성</h2>
+      <h2>새 요청사항 작성</h2>
       <div className="row-fields">
         <div className="field">
-          <label htmlFor="w-kind">구분</label>
-          <select id="w-kind" value={kind} onChange={(e) => { setKind(e.target.value as Kind); setLink(null); setQ(''); }}>
-            <option value="요청사항">요청사항</option>
-            <option value="결과물">결과물</option>
-          </select>
-        </div>
-        <div className="field">
           <label htmlFor="w-company">업체</label>
-          <select id="w-company" value={company} onChange={(e) => { setCompany(e.target.value); setPw(''); }}>
+          <select id="w-company" value={company} onChange={(e) => setCompany(e.target.value)}>
             {companies.map((c) => (
               <option key={c.name} value={c.name}>
                 {c.name}
@@ -139,7 +92,7 @@ export default function WriteForm(props: {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="w-pw">업체 비밀번호</label>
+          <label htmlFor="w-pw">글 비밀번호</label>
           <input id="w-pw" type="password" value={pw} onChange={(e) => setPw(e.target.value)} style={{ width: 180 }} />
         </div>
         <div className="field grow">
@@ -148,50 +101,12 @@ export default function WriteForm(props: {
         </div>
       </div>
 
-      {kind === '결과물' && (
-        <div className="field">
-          <span className="label">관련 요청사항 (필수)</span>
-          {selected ? (
-            <div className="selected-box">
-              <span>{reqLabel(selected)}</span>
-              <button className="btn btn-small btn-ghost" onClick={() => { setLink(null); setQ(''); }}>
-                변경
-              </button>
-            </div>
-          ) : (
-            <div className="combo">
-              <label htmlFor="w-q" className="sr-only">
-                요청사항 검색
-              </label>
-              <input id="w-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="요청사항 번호, 제목 또는 업체로 검색 (입력하면 목록이 나타나요)" autoComplete="off" />
-              {q.trim() !== '' && (
-                <div className="combo-list">
-                  {matches.slice(0, 6).map((p) => (
-                    <button key={p.id} className="combo-item" onClick={() => { setLink(p.id); setQ(''); }}>
-                      <span>{reqLabel(p)}</span>
-                      <span className="muted small-text">{p.author}</span>
-                    </button>
-                  ))}
-                  {matches.length === 0 && <div className="combo-note">검색 결과가 없어요</div>}
-                  {matches.length > 6 && <div className="combo-note">결과가 {matches.length}건이에요. 검색어를 더 입력하면 좁혀져요.</div>}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {kind === '요청사항' && (
-        <div className="field">
-          <label htmlFor="w-due">마감일 (선택)</label>
-          <input id="w-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} style={{ width: 200 }} />
-        </div>
-      )}
-
       <div className="field">
-        <label htmlFor="w-body">내용</label>
-        <textarea id="w-body" rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
+        <label htmlFor="w-due">마감일 (선택)</label>
+        <input id="w-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} style={{ width: 200 }} />
       </div>
+
+      <BlockEditor blocks={blocks} onChange={setBlocks} title={title} notify={notify} idPrefix="w" />
 
       <div className="field">
         <div>
@@ -213,7 +128,7 @@ export default function WriteForm(props: {
       </div>
 
       <div className="form-actions">
-        <span className={`msg ${pwBad ? 'msg-bad' : ''}`} aria-live="polite">
+        <span className="msg" aria-live="polite">
           {msg}
         </span>
         <button className="btn" disabled={!ok} onClick={submit}>

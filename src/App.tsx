@@ -20,7 +20,6 @@ export default function App() {
   const [openId, setOpenId] = useState<number | null>(parseHash());
   const [toast, setToast] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
-  const [prefill, setPrefill] = useState<{ link: number; key: number } | null>(null);
   const [focusKey, setFocusKey] = useState(0);
   const canWrite = token !== '';
 
@@ -81,19 +80,16 @@ export default function App() {
       try {
         for (const f of input.files) files.push(await uploadFile(id, f));
         const next = await mutatePosts((list) => {
-          if (input.kind === '결과물' && !list.some((p) => p.id === input.link && p.kind === '요청사항')) {
-            throw new UserError('연결하려던 요청사항이 삭제되었어요');
-          }
-          const no = input.kind === '요청사항' ? Math.max(0, ...list.filter((p) => p.kind === '요청사항').map((p) => p.no ?? 0)) + 1 : undefined;
+          const no = Math.max(0, ...list.filter((p) => p.kind === '요청사항').map((p) => p.no ?? 0)) + 1;
           const post: Post = {
             id,
-            ...(no !== undefined ? { no } : {}),
-            kind: input.kind,
+            no,
+            kind: '요청사항',
             title: input.title,
-            body: input.body,
+            blocks: input.blocks,
             author: input.company,
             ...(input.due ? { due: input.due } : {}),
-            ...(input.kind === '결과물' ? { link: input.link } : {}),
+            password: input.password,
             createdAt: new Date().toISOString(),
             files,
             comments: [],
@@ -118,11 +114,12 @@ export default function App() {
             const p = list.find((x) => x.id === id);
             if (!p) throw new UserError('이미 삭제된 글이에요');
             p.title = patch.title;
-            p.body = patch.body;
-            if (p.kind === '요청사항') {
-              if (patch.due) p.due = patch.due;
-              else delete p.due;
-            }
+            p.blocks = patch.blocks;
+            delete p.body;
+            if (patch.due) p.due = patch.due;
+            else delete p.due;
+            if (patch.done) p.done = { by: patch.done.by, at: new Date().toISOString() };
+            else if (patch.done === null) delete p.done;
             p.files = p.files.filter((f) => !removePaths.includes(f.path)).concat(metas);
             p.editedAt = new Date().toISOString();
             return list;
@@ -133,16 +130,13 @@ export default function App() {
           throw e;
         }
         if (removePaths.length > 0) void deleteFiles(removePaths);
-      }, '수정했어요'),
+      }, patch.done ? '작성 완료했어요' : patch.done === null ? '작성완료를 해제했어요' : '수정했어요'),
     deletePost: (id) =>
       run(async () => {
         const target = posts.find((p) => p.id === id);
         const next = await mutatePosts((list) => {
           const p = list.find((x) => x.id === id);
           if (!p) return list;
-          if (p.kind === '요청사항' && list.some((x) => x.kind === '결과물' && x.link === id)) {
-            throw new UserError('결과물이 연결된 요청사항은 삭제할 수 없어요');
-          }
           return list.filter((x) => x.id !== id);
         }, `글 삭제: ${target?.title ?? id}`);
         setPosts(next);
@@ -207,25 +201,11 @@ export default function App() {
             onOpen={openPost}
             focusKey={focusKey}
             onWriteClick={() => setFocusKey((k) => k + 1)}
-            prefill={prefill}
-            onPrefillUsed={() => setPrefill(null)}
             onSubmit={createPost}
             notify={notify}
           />
         ) : current ? (
-          <DetailView
-            key={current.id}
-            post={current}
-            posts={posts}
-            canWrite={canWrite}
-            actions={actions}
-            onBack={goList}
-            onOpen={openPost}
-            onReply={(requestId) => {
-              setPrefill({ link: requestId, key: Date.now() });
-              goList();
-            }}
-          />
+          <DetailView key={current.id} post={current} canWrite={canWrite} actions={actions} onBack={goList} />
         ) : (
           <div className="board-empty">
             {loading ? '불러오는 중…' : '글을 찾을 수 없어요. 삭제되었을 수 있어요.'}

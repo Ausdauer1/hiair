@@ -555,3 +555,114 @@ label.btn:focus-within,
     text-align: left;
   }
 }
+
+/* 표 */
+.table-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.table-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.table-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.grid {
+  border-collapse: collapse;
+  min-width: 100%;
+  background: #fff;
+  font-size: 14px;
+}
+.grid th,
+.grid td {
+  border: 1px solid var(--field);
+  padding: 8px 10px;
+  text-align: left;
+  min-width: 90px;
+}
+.grid th {
+  background: var(--blue-light);
+  font-weight: 700;
+}
+.grid-edit td,
+.grid-edit th {
+  padding: 0;
+}
+.grid-edit td input {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  padding: 0 8px;
+}
+.grid-edit td input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+  background: #fff;
+}
+.grid-edit tr.head-row td {
+  background: var(--blue-light);
+}
+.grid-edit tr.head-row td input {
+  font-weight: 700;
+}
+.grid-edit .col-del,
+.grid-edit .row-del {
+  min-width: 0;
+  width: 96px;
+  white-space: nowrap;
+  background: var(--panel-bg);
+  text-align: center;
+  border-color: var(--line);
+}
+.grid-edit .col-del {
+  min-width: 90px;
+  width: auto;
+  height: 24px;
+}
+.mini {
+  min-width: 28px;
+  height: 24px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 12px/1 'Noto Sans KR', sans-serif;
+  cursor: pointer;
+}
+.mini:hover {
+  color: var(--blue);
+  background: var(--blue-light);
+}
+.mini[aria-label$='삭제']:hover {
+  color: var(--danger);
+}
+
+/* 글 내용 속 표 / 작성 완료 */
+.table-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px dashed var(--field);
+  background: var(--panel-bg);
+}
+.complete-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+}

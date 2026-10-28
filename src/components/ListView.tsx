@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Post } from '../types';
 import { PAGE_SIZE } from '../config';
-import { dueInfo, requestsOf, resultsOf, ymd } from '../lib/util';
+import { dueInfo, requestsOf, ymd } from '../lib/util';
 import { ClipIcon, KindChip } from './ui';
 import WriteForm, { type NewPostInput } from './WriteForm';
 
@@ -12,8 +12,6 @@ export default function ListView(props: {
   onOpen: (id: number) => void;
   focusKey: number;
   onWriteClick: () => void;
-  prefill: { link: number; key: number } | null;
-  onPrefillUsed: () => void;
   onSubmit: (input: NewPostInput) => Promise<boolean>;
   notify: (msg: string) => void;
 }) {
@@ -24,7 +22,7 @@ export default function ListView(props: {
   const filtered = useMemo(() => {
     const t = sq.trim().toLowerCase();
     return requestsOf(posts).filter(
-      (p) => t === '' || p.title.toLowerCase().includes(t) || resultsOf(posts, p.id).some((r) => r.title.toLowerCase().includes(t)),
+      (p) => t === '' || p.title.toLowerCase().includes(t),
     );
   }, [posts, sq]);
 
@@ -47,10 +45,8 @@ export default function ListView(props: {
       <section className="board">
         {pageReqs.map((req) => (
           <div key={req.id}>
-            <Row post={req} posts={posts} onOpen={props.onOpen} />
-            {resultsOf(posts, req.id).map((res) => (
-              <Row key={res.id} post={res} posts={posts} onOpen={props.onOpen} reply />
-            ))}
+            <Row post={req} onOpen={props.onOpen} />
+            {req.done && <DoneRow post={req} onOpen={props.onOpen} />}
           </div>
         ))}
         {loading && posts.length === 0 && <div className="board-empty">불러오는 중…</div>}
@@ -73,25 +69,18 @@ export default function ListView(props: {
         </nav>
       )}
 
-      <WriteForm posts={posts} canWrite={props.canWrite} focusKey={props.focusKey} prefill={props.prefill} onPrefillUsed={props.onPrefillUsed} onSubmit={props.onSubmit} notify={props.notify} />
+      <WriteForm canWrite={props.canWrite} focusKey={props.focusKey} onSubmit={props.onSubmit} notify={props.notify} />
     </>
   );
 }
 
-function Row({ post, posts, onOpen, reply }: { post: Post; posts: Post[]; onOpen: (id: number) => void; reply?: boolean }) {
-  const isReq = post.kind === '요청사항';
-  const resCount = isReq ? resultsOf(posts, post.id).length : 0;
-  const due = isReq ? dueInfo(post.due, resCount > 0) : null;
-  const meta = [post.author, ymd(post.createdAt), `댓글 ${post.comments.length}`, ...(isReq ? [`결과물 ${resCount}건`] : [])].join(' · ');
+function Row({ post, onOpen }: { post: Post; onOpen: (id: number) => void }) {
+  const due = dueInfo(post.due, !!post.done);
+  const meta = [post.author, ymd(post.createdAt), `댓글 ${post.comments.length}`].join(' · ');
   return (
-    <div className={`row ${reply ? 'row-reply' : ''}`}>
+    <div className="row">
       <KindChip kind={post.kind} />
       <div className="row-title">
-        {reply && (
-          <span aria-hidden="true" className="muted">
-            ↳
-          </span>
-        )}
         <a
           href={`#/post/${post.id}`}
           onClick={(e) => {
@@ -103,8 +92,36 @@ function Row({ post, posts, onOpen, reply }: { post: Post; posts: Post[]; onOpen
         </a>
         {post.files.length > 0 && <ClipIcon />}
       </div>
-      <span className={`due due-${due ? due.tone : 'none'}`}>{due ? due.text : ''}</span>
+      <span className={`due due-${due.tone}`}>{due.text}</span>
       <span className="row-meta">{meta}</span>
+    </div>
+  );
+}
+
+/** 요청사항 아래에 붙는 "작성완료" 줄 */
+function DoneRow({ post, onOpen }: { post: Post; onOpen: (id: number) => void }) {
+  const done = post.done!;
+  return (
+    <div className="row row-reply">
+      <span className="chip chip-res">작성완료</span>
+      <div className="row-title">
+        <span aria-hidden="true" className="muted">
+          ↳
+        </span>
+        <a
+          href={`#/post/${post.id}`}
+          onClick={(e) => {
+            e.preventDefault();
+            onOpen(post.id);
+          }}
+        >
+          작성완료
+        </a>
+      </div>
+      <span />
+      <span className="row-meta">
+        {done.by} · {ymd(done.at)}
+      </span>
     </div>
   );
 }

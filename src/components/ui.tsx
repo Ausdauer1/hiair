@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { Kind } from '../types';
-import { checkPassword } from '../config';
 
 export function KindChip({ kind }: { kind: Kind }) {
   return <span className={`chip ${kind === '요청사항' ? 'chip-req' : 'chip-res'}`}>{kind}</span>;
@@ -31,10 +30,11 @@ export function Toast({ text }: { text: string }) {
   );
 }
 
-/** 작성 업체 비밀번호를 한 번 더 확인하는 작은 창 (수정/삭제용) */
+/** 글 비밀번호를 한 번 더 확인하는 작은 창 (수정/삭제용) */
 export function PasswordDialog(props: {
   title: string;
-  company: string;
+  /** 글을 쓸 때 정한 비밀번호 */
+  expected: string;
   confirmLabel: string;
   danger?: boolean;
   blockedMessage?: string;
@@ -43,10 +43,10 @@ export function PasswordDialog(props: {
 }) {
   const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
-  const ok = checkPassword(props.company, pw);
+  const ok = pw !== '' && pw === props.expected;
   const bad = pw !== '' && !ok;
   const blocked = !!props.blockedMessage;
-  const msg = blocked ? props.blockedMessage : pw === '' ? '작성한 업체의 비밀번호를 입력하세요' : bad ? '비밀번호가 맞지 않아요' : props.danger ? '삭제하면 되돌릴 수 없어요' : '확인됐어요';
+  const msg = blocked ? props.blockedMessage : pw === '' ? '글을 쓸 때 정한 비밀번호를 입력하세요' : bad ? '비밀번호가 맞지 않아요' : props.danger ? '삭제하면 되돌릴 수 없어요' : '확인됐어요';
 
   async function go() {
     if (!ok || blocked || busy) return;
@@ -62,7 +62,7 @@ export function PasswordDialog(props: {
     <div className="dialog" role="dialog" aria-label={props.title}>
       <strong>{props.title}</strong>
       <div className="field">
-        <label htmlFor="dlg-pw">작성 업체 비밀번호 ({props.company})</label>
+        <label htmlFor="dlg-pw">글 비밀번호</label>
         <input id="dlg-pw" type="password" value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} autoFocus />
       </div>
       <span className={`msg ${bad ? 'msg-bad' : ''}`} aria-live="polite">

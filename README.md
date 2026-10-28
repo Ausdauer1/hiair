@@ -7,7 +7,7 @@
 2. **토큰 만들기**: GitHub → Settings → Developer settings → Fine-grained token. 이 저장소만 선택, Permissions → Contents: Read and write.
 3. **Secrets** (Settings → Secrets and variables → Actions)
    - `GH_DATA_TOKEN`: 위 토큰
-   - `COMPANIES_JSON`: `[{"name":"하이에어코리아","password":"0000"},{"name":"협력업체 A","password":"1111"}]`
+   - `COMPANIES_JSON`: 업체 이름 목록 `["하이에어코리아","협력업체 A","협력업체 B"]` (비밀번호는 글마다 작성자가 정해요)
 4. **Pages**: Settings → Pages → Source를 `GitHub Actions`로.
 5. `main`에 push하면 자동 배포됩니다.
 
@@ -15,4 +15,4 @@
 `.env.example`을 `.env`로 복사해 값을 채운 뒤 `npm install && npm run dev`.
 
 ## 주의 (프로토타입)
-토큰과 업체 비밀번호가 빌드 결과(JS)에 포함되어 누구나 볼 수 있습니다. 무료 Pages는 공개 저장소가 필요해 글·첨부파일도 공개됩니다. 실서비스에는 서버/인증을 두세요.
+토큰과 글 비밀번호가 빌드 결과(JS)에 포함되어 누구나 볼 수 있습니다. 무료 Pages는 공개 저장소가 필요해 글·첨부파일도 공개됩니다. 실서비스에는 서버/인증을 두세요.

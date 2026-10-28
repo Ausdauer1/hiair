@@ -1,51 +1,35 @@
 import { useState } from 'react';
-import type { FileMeta, Post } from '../types';
-import { MAX_FILES, MAX_FILE_MB, checkPassword, companies } from '../config';
+import type { Block, FileMeta, Post } from '../types';
+import { MAX_FILES, MAX_FILE_MB, companies } from '../config';
 import { errMsg, fetchFileBlob } from '../lib/github';
-import { dueInfo, fileSize, isKakaoInApp, kakaoExternalUrl, reqLabel, resultsOf, ymdhm } from '../lib/util';
+import { blocksOf, dueInfo, fileSize, saveBlob, ymdhm } from '../lib/util';
 import { DownloadIcon, KindChip, PasswordDialog } from './ui';
+import { TableView } from './TableEditor';
+import BlockEditor from './BlockEditor';
 
 export interface DetailActions {
-  updatePost: (id: number, patch: { title: string; body: string; due: string }, add: File[], removePaths: string[]) => Promise<boolean>;
+  updatePost: (
+    id: number,
+    patch: { title: string; blocks: Block[]; due: string; done?: { by: string } | null },
+    add: File[],
+    removePaths: string[],
+  ) => Promise<boolean>;
   deletePost: (id: number) => Promise<boolean>;
   addComment: (id: number, author: string, text: string) => Promise<boolean>;
   notify: (msg: string) => void;
 }
 
-export default function DetailView(props: {
-  post: Post;
-  posts: Post[];
-  canWrite: boolean;
-  actions: DetailActions;
-  onBack: () => void;
-  onOpen: (id: number) => void;
-  onReply: (requestId: number) => void;
-}) {
-  const { post, posts, canWrite, actions } = props;
-  const isReq = post.kind === '요청사항';
-  const results = isReq ? resultsOf(posts, post.id) : [];
-  const parent = !isReq && post.link != null ? posts.find((p) => p.id === post.link) : undefined;
-  const due = isReq ? dueInfo(post.due, results.length > 0) : null;
+export default function DetailView(props: { post: Post; canWrite: boolean; actions: DetailActions; onBack: () => void }) {
+  const { post, canWrite, actions } = props;
+  const due = dueInfo(post.due, !!post.done);
 
   const [auth, setAuth] = useState<null | 'edit' | 'delete'>(null);
   const [editing, setEditing] = useState(false);
 
   async function download(f: FileMeta) {
-    if (isKakaoInApp()) {
-      actions.notify('기본 브라우저에서 다운로드할 수 있어요. 브라우저로 이동합니다');
-      window.location.href = kakaoExternalUrl();
-      return;
-    }
     try {
       const blob = await fetchFileBlob(f.path);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = f.name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      saveBlob(blob, f.name);
       actions.notify('다운로드했어요');
     } catch (e) {
       actions.notify(errMsg(e));
@@ -68,10 +52,9 @@ export default function DetailView(props: {
       <section className="panel">
         <div className="detail-head">
           <KindChip kind={post.kind} />
-          {due && <span className={`due due-${due.tone}`}>{due.text}</span>}
+          {due.tone !== 'none' && <span className={`due due-${due.tone}`}>{due.text}</span>}
           <span className="muted small-text">
-            {isReq ? `#${post.no} · ` : ''}
-            {post.author} · {ymdhm(post.createdAt)}
+            #{post.no} · {post.author} · {ymdhm(post.createdAt)}
             {post.editedAt ? ' · 수정됨' : ''}
           </span>
           {!editing && (
@@ -91,23 +74,18 @@ export default function DetailView(props: {
         ) : (
           <>
             <h1>{post.title}</h1>
-            <p className="body">{post.body}</p>
+            {blocksOf(post).map((b, i) =>
+              b.type === 'text' ? (
+                b.text.trim() !== '' && (
+                  <p key={i} className="body">
+                    {b.text}
+                  </p>
+                )
+              ) : (
+                <TableView key={i} table={b.rows} title={post.title} notify={actions.notify} />
+              ),
+            )}
           </>
-        )}
-
-        {parent && (
-          <div className="link-box">
-            <span className="muted small-text">연결된 요청사항</span>
-            <a
-              href={`#/post/${parent.id}`}
-              onClick={(e) => {
-                e.preventDefault();
-                props.onOpen(parent.id);
-              }}
-            >
-              ↳ 요청사항 {reqLabel(parent)}
-            </a>
-          </div>
         )}
 
         {!editing && post.files.length > 0 && (
@@ -127,32 +105,15 @@ export default function DetailView(props: {
           </div>
         )}
 
-        {isReq && (
-          <div className="results">
-            <h2 className="sub-title">연결된 결과물 {results.length}건</h2>
-            {results.map((r) => (
-              <div key={r.id} className="result-line">
-                <a
-                  href={`#/post/${r.id}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    props.onOpen(r.id);
-                  }}
-                >
-                  {r.title}
-                </a>
-                <span className="muted small-text"> · {r.author}</span>
-              </div>
-            ))}
-            {!editing && (
-              <div>
-                <button className="btn btn-outline" onClick={() => props.onReply(post.id)}>
-                  이 요청사항에 결과물 올리기
-                </button>
-              </div>
-            )}
+        {!editing && post.done && (
+          <div className="link-box">
+            <span className="muted small-text">작성완료</span>
+            <strong>
+              {post.done.by} · {ymdhm(post.done.at)}
+            </strong>
           </div>
         )}
+        {!editing && !post.done && <span className="muted small-text">내용을 채워서 보내려면 수정한 뒤 「작성 완료」를 누르세요.</span>}
       </section>
 
       <Comments post={post} canWrite={canWrite} actions={actions} />
@@ -160,10 +121,10 @@ export default function DetailView(props: {
       {auth && (
         <PasswordDialog
           title={auth === 'edit' ? '글 수정' : '글 삭제'}
-          company={post.author}
+          expected={post.password ?? ''}
           confirmLabel={auth === 'edit' ? '수정하기' : '삭제하기'}
           danger={auth === 'delete'}
-          blockedMessage={auth === 'delete' && results.length > 0 ? '결과물이 연결된 요청사항은 삭제할 수 없어요' : !canWrite ? '쓰기 토큰이 설정되지 않았어요' : undefined}
+          blockedMessage={!canWrite ? '쓰기 토큰이 설정되지 않았어요' : undefined}
           onCancel={() => setAuth(null)}
           onConfirm={async () => {
             if (auth === 'edit') {
@@ -183,10 +144,11 @@ export default function DetailView(props: {
 
 function EditForm({ post, canWrite, actions, onDone }: { post: Post; canWrite: boolean; actions: DetailActions; onDone: () => void }) {
   const [title, setTitle] = useState(post.title);
-  const [body, setBody] = useState(post.body);
+  const [blocks, setBlocks] = useState<Block[]>(blocksOf(post));
   const [due, setDue] = useState(post.due ?? '');
   const [kept, setKept] = useState<FileMeta[]>(post.files);
   const [added, setAdded] = useState<File[]>([]);
+  const [by, setBy] = useState(post.done?.by ?? companies[0].name);
   const [busy, setBusy] = useState(false);
   const ok = canWrite && title.trim() !== '' && !busy;
 
@@ -207,13 +169,14 @@ function EditForm({ post, canWrite, actions, onDone }: { post: Post; canWrite: b
     setAdded(next);
   }
 
-  async function save() {
+  /** done: undefined = 작성완료 상태 그대로, {by} = 작성 완료, null = 작성완료 해제 */
+  async function save(done?: { by: string } | null) {
     if (!ok) return;
     setBusy(true);
     const removed = post.files.filter((f) => !kept.some((k) => k.path === f.path)).map((f) => f.path);
-    const done = await actions.updatePost(post.id, { title: title.trim(), body, due: post.kind === '요청사항' ? due : '' }, added, removed);
+    const result = await actions.updatePost(post.id, { title: title.trim(), blocks, due, done }, added, removed);
     setBusy(false);
-    if (done) onDone();
+    if (result) onDone();
   }
 
   return (
@@ -222,16 +185,11 @@ function EditForm({ post, canWrite, actions, onDone }: { post: Post; canWrite: b
         <label htmlFor="e-title">제목</label>
         <input id="e-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
       </div>
-      {post.kind === '요청사항' && (
-        <div className="field">
-          <label htmlFor="e-due">마감일 (선택)</label>
-          <input id="e-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} style={{ width: 200 }} />
-        </div>
-      )}
       <div className="field">
-        <label htmlFor="e-body">내용</label>
-        <textarea id="e-body" rows={5} value={body} onChange={(e) => setBody(e.target.value)} />
+        <label htmlFor="e-due">마감일 (선택)</label>
+        <input id="e-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} style={{ width: 200 }} />
       </div>
+      <BlockEditor blocks={blocks} onChange={setBlocks} title={title} notify={actions.notify} idPrefix="e" />
       <div className="field">
         <div>
           <input id="e-files" type="file" multiple className="sr-only" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
@@ -260,9 +218,29 @@ function EditForm({ post, canWrite, actions, onDone }: { post: Post; canWrite: b
           </div>
         ))}
       </div>
+      <div className="complete-box">
+        <div className="field">
+          <label htmlFor="e-by">작성 업체</label>
+          <select id="e-by" value={by} onChange={(e) => setBy(e.target.value)}>
+            {companies.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button className="btn" disabled={!ok} onClick={() => save({ by })}>
+          {busy ? '저장 중…' : '작성 완료'}
+        </button>
+        {post.done && (
+          <button className="btn btn-ghost" disabled={!ok} onClick={() => save(null)}>
+            작성완료 해제
+          </button>
+        )}
+      </div>
       <div className="dialog-actions left">
-        <button className="btn" disabled={!ok} onClick={save}>
-          {busy ? '저장 중…' : '저장'}
+        <button className="btn btn-outline" disabled={!ok} onClick={() => save()}>
+          저장 (작성완료 표시는 그대로)
         </button>
         <button className="btn btn-ghost" onClick={onDone}>
           취소
@@ -274,13 +252,10 @@ function EditForm({ post, canWrite, actions, onDone }: { post: Post; canWrite: b
 
 function Comments({ post, canWrite, actions }: { post: Post; canWrite: boolean; actions: DetailActions }) {
   const [company, setCompany] = useState(companies[0].name);
-  const [pw, setPw] = useState('');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const pwOk = checkPassword(company, pw);
-  const bad = pw !== '' && !pwOk;
-  const ok = canWrite && pwOk && text.trim() !== '' && !busy;
-  const msg = !canWrite ? '쓰기 토큰이 설정되지 않아 댓글을 등록할 수 없어요' : pw === '' ? '업체 비밀번호를 입력하세요' : bad ? '비밀번호가 맞지 않아요' : text.trim() === '' ? '댓글 내용을 입력하세요' : busy ? '등록 중…' : '확인됐어요';
+  const ok = canWrite && text.trim() !== '' && !busy;
+  const msg = !canWrite ? '쓰기 토큰이 설정되지 않아 댓글을 등록할 수 없어요' : text.trim() === '' ? '댓글 내용을 입력하세요' : busy ? '등록 중…' : '확인됐어요';
 
   async function submit() {
     if (!ok) return;
@@ -288,7 +263,6 @@ function Comments({ post, canWrite, actions }: { post: Post; canWrite: boolean; 
     const done = await actions.addComment(post.id, company, text.trim());
     setBusy(false);
     if (done) {
-      setPw('');
       setText('');
     }
   }
@@ -313,7 +287,7 @@ function Comments({ post, canWrite, actions }: { post: Post; canWrite: boolean; 
         <div className="row-fields">
           <div className="field">
             <label htmlFor="c-company">업체</label>
-            <select id="c-company" value={company} onChange={(e) => { setCompany(e.target.value); setPw(''); }}>
+            <select id="c-company" value={company} onChange={(e) => setCompany(e.target.value)}>
               {companies.map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.name}
@@ -321,17 +295,13 @@ function Comments({ post, canWrite, actions }: { post: Post; canWrite: boolean; 
               ))}
             </select>
           </div>
-          <div className="field">
-            <label htmlFor="c-pw">업체 비밀번호</label>
-            <input id="c-pw" type="password" value={pw} onChange={(e) => setPw(e.target.value)} style={{ width: 180 }} />
-          </div>
         </div>
         <div className="field">
           <label htmlFor="c-text">댓글 내용</label>
           <textarea id="c-text" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
         </div>
         <div className="form-actions">
-          <span className={`msg ${bad ? 'msg-bad' : ''}`} aria-live="polite">
+          <span className="msg" aria-live="polite">
             {msg}
           </span>
           <button className="btn" disabled={!ok} onClick={submit}>

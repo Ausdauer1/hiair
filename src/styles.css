@@ -657,6 +657,9 @@ label.btn:focus-within,
   border: 1px dashed var(--field);
   background: var(--panel-bg);
 }
+.complete-box .grow {
+  flex: 1 1 260px;
+}
 .complete-box {
   display: flex;
   flex-wrap: wrap;

@@ -33,6 +33,8 @@ export type Block = { type: 'text'; text: string } | ({ type: 'table' } & TableD
 export interface Done {
   by: string;
   at: string;
+  /** 작성완료 줄에 보이는 한 줄 제목 (비우면 "작성완료") */
+  title?: string;
 }
 
 export interface Post {

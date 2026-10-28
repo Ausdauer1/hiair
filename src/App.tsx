@@ -125,7 +125,7 @@ export default function App() {
             delete p.body;
             if (patch.due) p.due = patch.due;
             else delete p.due;
-            if (patch.done) p.done = { by: patch.done.by, at: new Date().toISOString() };
+            if (patch.done) p.done = { by: patch.done.by, at: new Date().toISOString(), ...(patch.done.title ? { title: patch.done.title } : {}) };
             else if (patch.done === null) delete p.done;
             p.files = p.files.filter((f) => !removePaths.includes(f.path)).concat(metas);
             p.editedAt = new Date().toISOString();

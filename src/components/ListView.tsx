@@ -115,7 +115,7 @@ function DoneRow({ post, onOpen }: { post: Post; onOpen: (id: number) => void })
             onOpen(post.id);
           }}
         >
-          작성완료
+          {done.title || '작성완료'}
         </a>
       </div>
       <span />

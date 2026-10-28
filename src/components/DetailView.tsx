@@ -10,7 +10,7 @@ import BlockEditor from './BlockEditor';
 export interface DetailActions {
   updatePost: (
     id: number,
-    patch: { title: string; blocks: Block[]; due: string; done?: { by: string } | null },
+    patch: { title: string; blocks: Block[]; due: string; done?: { by: string; title: string } | null },
     add: File[],
     removePaths: string[],
   ) => Promise<boolean>;
@@ -108,9 +108,10 @@ export default function DetailView(props: { post: Post; canWrite: boolean; actio
         {!editing && post.done && (
           <div className="link-box">
             <span className="muted small-text">작성완료</span>
-            <strong>
+            {post.done.title && <strong>{post.done.title}</strong>}
+            <span>
               {post.done.by} · {ymdhm(post.done.at)}
-            </strong>
+            </span>
           </div>
         )}
         {!editing && !post.done && <span className="muted small-text">내용을 채워서 보내려면 수정한 뒤 「작성 완료」를 누르세요.</span>}
@@ -149,6 +150,7 @@ function EditForm({ post, canWrite, actions, onDone }: { post: Post; canWrite: b
   const [kept, setKept] = useState<FileMeta[]>(post.files);
   const [added, setAdded] = useState<File[]>([]);
   const [by, setBy] = useState(post.done?.by ?? companies[0].name);
+  const [doneTitle, setDoneTitle] = useState(post.done?.title ?? '');
   const [busy, setBusy] = useState(false);
   const ok = canWrite && title.trim() !== '' && !busy;
 
@@ -170,7 +172,7 @@ function EditForm({ post, canWrite, actions, onDone }: { post: Post; canWrite: b
   }
 
   /** done: undefined = 작성완료 상태 그대로, {by} = 작성 완료, null = 작성완료 해제 */
-  async function save(done?: { by: string } | null) {
+  async function save(done?: { by: string; title: string } | null) {
     if (!ok) return;
     setBusy(true);
     const removed = post.files.filter((f) => !kept.some((k) => k.path === f.path)).map((f) => f.path);
@@ -229,7 +231,11 @@ function EditForm({ post, canWrite, actions, onDone }: { post: Post; canWrite: b
             ))}
           </select>
         </div>
-        <button className="btn" disabled={!ok} onClick={() => save({ by })}>
+        <div className="field grow">
+          <label htmlFor="e-done-title">작성완료 제목 (선택, 한 줄)</label>
+          <input id="e-done-title" type="text" value={doneTitle} maxLength={80} onChange={(e) => setDoneTitle(e.target.value)} placeholder="예: A야드 크레인 세팅값 입력 완료" />
+        </div>
+        <button className="btn" disabled={!ok} onClick={() => save({ by, title: doneTitle.trim() })}>
           {busy ? '저장 중…' : '작성 완료'}
         </button>
         {post.done && (

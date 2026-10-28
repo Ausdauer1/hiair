@@ -75,7 +75,7 @@ export function buildXlsx(rows: string[][], sheetName = 'Sheet1', fmt?: CellFmt[
   // 서식 조합마다 스타일 번호를 하나씩 만들어요
   const styleKeys: string[] = [];
   const styleOf = (hdr: boolean, f: CellFmt | undefined) => {
-    const key = `${hdr ? 1 : 0}${f?.b ? 1 : 0}${f?.a ?? ''}`;
+    const key = `${hdr ? 1 : 0}${(f?.b ?? hdr) ? 1 : 0}${f?.a ?? ''}`;
     let i = styleKeys.indexOf(key);
     if (i < 0) i = styleKeys.push(key) - 1;
     return i;
@@ -93,7 +93,7 @@ export function buildXlsx(rows: string[][], sheetName = 'Sheet1', fmt?: CellFmt[
   const xfs = styleKeys
     .map((k) => {
       const hdr = k[0] === '1';
-      const bold = hdr || k[1] === '1';
+      const bold = k[1] === '1';
       const al = k.slice(2) as '' | 'l' | 'c' | 'r';
       return `<xf numFmtId="49" fontId="${bold ? 1 : 0}" fillId="${hdr ? 2 : 0}" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyNumberFormat="1"${al ? ' applyAlignment="1"><alignment horizontal="' + ALIGN[al] + '" vertical="center"/></xf>' : '/>'}`;
     })

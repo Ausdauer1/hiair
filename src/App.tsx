@@ -174,7 +174,7 @@ export default function App() {
                 goList();
               }}
             >
-              하이에어코리아 <span>협력업체 게시판</span>
+              하이에어코리아 <span>게시판</span>
             </a>
           </h1>
           <span className="band-sub">요청사항을 올리면 결과물로 회신해요</span>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { FileMeta, Post } from '../types';
 import { MAX_FILES, MAX_FILE_MB, checkPassword, companies } from '../config';
 import { errMsg, fetchFileBlob } from '../lib/github';
-import { dueInfo, fileSize, reqLabel, resultsOf, ymdhm } from '../lib/util';
+import { dueInfo, fileSize, isKakaoInApp, kakaoExternalUrl, reqLabel, resultsOf, ymdhm } from '../lib/util';
 import { DownloadIcon, KindChip, PasswordDialog } from './ui';
 
 export interface DetailActions {
@@ -31,6 +31,11 @@ export default function DetailView(props: {
   const [editing, setEditing] = useState(false);
 
   async function download(f: FileMeta) {
+    if (isKakaoInApp()) {
+      actions.notify('기본 브라우저에서 다운로드할 수 있어요. 브라우저로 이동합니다');
+      window.location.href = kakaoExternalUrl();
+      return;
+    }
     try {
       const blob = await fetchFileBlob(f.path);
       const url = URL.createObjectURL(blob);

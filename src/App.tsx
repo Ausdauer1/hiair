@@ -6,6 +6,7 @@ import ListView from './components/ListView';
 import DetailView, { type DetailActions } from './components/DetailView';
 import type { NewPostInput } from './components/WriteForm';
 import { Toast } from './components/ui';
+import { isKakaoInApp, kakaoExternalUrl } from './lib/util';
 
 function parseHash(): number | null {
   const m = window.location.hash.match(/^#\/post\/(\d+)/);
@@ -180,6 +181,14 @@ export default function App() {
           <span className="band-sub">요청사항을 올리면 결과물로 회신해요</span>
         </header>
 
+        {isKakaoInApp() && (
+          <div className="notice-bar">
+            카카오톡 안에서는 파일 다운로드가 되지 않아요.{' '}
+            <a href={kakaoExternalUrl()} className="btn btn-small">
+              기본 브라우저로 열기
+            </a>
+          </div>
+        )}
         {!canWrite && <div className="notice-bar">쓰기 토큰이 설정되지 않아 지금은 읽기만 할 수 있어요. (README의 설정 안내를 확인해 주세요)</div>}
         {error && (
           <div className="notice-bar notice-bad">

@@ -48,3 +48,13 @@ export function resultsOf(posts: Post[], requestId: number): Post[] {
 export function reqLabel(p: Post): string {
   return `#${p.no ?? '-'} ${p.title}`;
 }
+
+/** 카카오톡 등 인앱 브라우저는 blob 다운로드를 지원하지 않는다 */
+export function isKakaoInApp(): boolean {
+  return /KAKAOTALK/i.test(navigator.userAgent);
+}
+
+/** 카카오톡 인앱 브라우저에서 현재 페이지를 기본 브라우저로 여는 주소 */
+export function kakaoExternalUrl(): string {
+  return `kakaotalk://web/openExternal?url=${encodeURIComponent(window.location.href)}`;
+}

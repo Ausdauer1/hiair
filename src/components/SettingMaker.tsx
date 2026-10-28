@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import type { TableData } from '../types';
-import { useSettings } from '../settings';
+import { sameName, useSettings } from '../settings';
 import TableEditor, { blankTable } from './TableEditor';
 
 /** 세팅값 표를 따로 만들어 저장하는 창 (새 글을 쓸 때 불러와서 넣어요) */
 export default function SettingMaker({ onClose, notify }: { onClose: () => void; notify: (m: string) => void }) {
-  const { save, canWrite } = useSettings();
+  const { save, canWrite, settings } = useSettings();
   const [name, setName] = useState('');
   const [table, setTable] = useState<TableData | undefined>(blankTable(6, 3));
   const [busy, setBusy] = useState(false);
-  const ok = canWrite && name.trim() !== '' && !!table && !busy;
+  const dup = name.trim() !== '' && settings.some((s) => sameName(s.name, name));
+  const ok = canWrite && name.trim() !== '' && !dup && !!table && !busy;
 
   async function go() {
     if (!ok || !table) return;
@@ -41,7 +42,7 @@ export default function SettingMaker({ onClose, notify }: { onClose: () => void;
           </button>
         )}
         <div className="form-actions">
-          <span className="msg">{!canWrite ? '쓰기 토큰이 설정되지 않아 저장할 수 없어요' : name.trim() === '' ? '세팅값 이름을 입력하세요' : !table ? '표가 없어요' : busy ? '저장 중…' : '확인됐어요'}</span>
+          <span className={`msg ${dup ? 'msg-bad' : ''}`} aria-live="polite">{!canWrite ? '쓰기 토큰이 설정되지 않아 저장할 수 없어요' : name.trim() === '' ? '세팅값 이름을 입력하세요' : dup ? '이미 있는 이름이에요. 다른 이름으로 저장하세요' : !table ? '표가 없어요' : busy ? '저장 중…' : '확인됐어요'}</span>
           <button className="btn btn-ghost" onClick={onClose}>
             취소
           </button>

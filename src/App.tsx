@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FileMeta, Post, SettingTable } from './types';
 import { token } from './config';
 import { UserError, deleteFiles, errMsg, loadPosts, loadSettings, mutatePosts, mutateSettings, uploadFile } from './lib/github';
-import { SettingsContext, type SettingsApi } from './settings';
+import { SettingsContext, sameName, type SettingsApi } from './settings';
 import ListView from './components/ListView';
 import DetailView, { type DetailActions } from './components/DetailView';
 import type { NewPostInput } from './components/WriteForm';
@@ -167,7 +167,11 @@ export default function App() {
     save: (name, table) =>
       run(async () => {
         setSettings(
-          await mutateSettings((list) => [...list, { id: Date.now(), name, table, createdAt: new Date().toISOString() }], `세팅값 저장: ${name}`),
+          await mutateSettings((list) => {
+            // 동시에 같은 이름을 저장한 사람이 있을 수 있어 최신 목록으로 한 번 더 확인해요
+            if (list.some((x) => sameName(x.name, name))) throw new UserError('이미 있는 이름이에요. 다른 이름으로 저장하세요');
+            return [...list, { id: Date.now(), name, table, createdAt: new Date().toISOString() }];
+          }, `세팅값 저장: ${name}`),
         );
       }, '세팅값을 저장했어요'),
     remove: (id) =>
